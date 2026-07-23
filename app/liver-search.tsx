@@ -22,6 +22,7 @@ interface FormValues {
 }
 
 export function LiverSearch({ livers }: { livers: Liver[] }) {
+    const [form] = Form.useForm<FormValues>();
     const [liverResults, setLiverResults] = useState<Liver[]>([]);
 
     function onSearch(formValues: FormValues) {
@@ -56,7 +57,7 @@ export function LiverSearch({ livers }: { livers: Liver[] }) {
     return (
         <div className="w-full grow lg:min-h-0 flex max-lg:flex-col justify-center max-lg:items-center gap-8">
             <Card title="Search Filters" className="w-full h-fit md:max-w-lg">
-                <Form onFinish={onSearch}>
+                <Form form={form} onFinish={onSearch}>
                     <Space vertical size={4} className="w-full">
                         <Form.Item
                             name="debut"
@@ -78,11 +79,16 @@ export function LiverSearch({ livers }: { livers: Liver[] }) {
                         >
                             <ColorBox />
                         </Form.Item>
+                        <div className="flex gap-2 w-full">
                             <Form.Item label={null}>
                                 <Button type="primary" htmlType="submit">
                                     Search
                                 </Button>
                             </Form.Item>
+                            <Button type="default" onClick={() => { form.resetFields(); setLiverResults([]); }}>
+                                Clear
+                            </Button>
+                        </div>
                     </Space>
                 </Form>
             </Card>
