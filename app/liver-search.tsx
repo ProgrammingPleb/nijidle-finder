@@ -248,10 +248,10 @@ function DebutBox({ onChange }: { onChange?: (data: DebutValue | undefined) => v
 
 function SpeciesBox({ keys, onChange }: { keys: string[], onChange?: (data?: string[]) => void }) {
     const species = useRef<string>(undefined);
-    const [isExact, setIsExact] = useState(false);
+    const [isAdjacent, setIsAdjacent] = useState(false);
 
-    function emit(nextSpecies: string | undefined, nextIsExact: boolean) {
-        const speciesData = nextSpecies ? nextIsExact ? [nextSpecies] : relatedSpecies(nextSpecies, keys) : undefined;
+    function emit(nextSpecies: string | undefined, nextIsAdjacent: boolean) {
+        const speciesData = nextSpecies ? nextIsAdjacent ? relatedSpecies(nextSpecies, keys) : [nextSpecies] : undefined;
         onChange?.(speciesData ? speciesData : undefined);
     }
 
@@ -262,8 +262,8 @@ function SpeciesBox({ keys, onChange }: { keys: string[], onChange?: (data?: str
                 <Select
                     className="flex-1"
                     onChange={(input) => {
-                        species.current == input;
-                        emit(input, isExact);
+                        species.current = input;
+                        emit(input, isAdjacent);
                     }}
                     showSearch={{
                         filterOption: (input, option) => relatedSpecies(input, [option!.value]).length > 0
@@ -271,14 +271,14 @@ function SpeciesBox({ keys, onChange }: { keys: string[], onChange?: (data?: str
                     options={keys.map((key) => ({ value: key, label: key }))}
                     allowClear
                 />
-                <Button type={isExact ? "primary" : "default"}
+                <Button type={isAdjacent ? "primary" : "default"}
                     onClick={() => {
-                        const newGuess = !isExact;
-                        setIsExact(newGuess);
+                        const newGuess = !isAdjacent;
+                        setIsAdjacent(newGuess);
                         emit(species.current, newGuess);
                     }}
                 >
-                    Exact
+                    Adjacent
                 </Button>
             </div>
         </Space>
