@@ -11,7 +11,7 @@ export interface Liver {
 export function relatedSpecies(query: string | undefined, allSpecies: string[]): string[] {
     if (!query) return [];
     const base = query.split(/[,:]/)[0].trim().toLowerCase();
-    return allSpecies.filter((s) => s.toLowerCase().includes(base));
+    return allSpecies.filter((s) => s.toLowerCase().includes(base) && s.toLowerCase() != base);
 }
 
 export function uniqueValues<T, K extends keyof T>(items: T[], key: K): T[K][] {

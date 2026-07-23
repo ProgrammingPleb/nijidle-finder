@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Card, Form, InputNumber, Select, Space } from "antd";
 import { Liver, relatedSpecies, uniqueValues } from "./model/nijisanji";
+import { SelectBox } from "./components/select-box";
+
+const COLORS = ["red", "orange", "cream", "yellow", "green", "teal", "blue", "purple", "magenta", "pink"];
 
 type DebutGuess = "above" | "below" | "exact";
 
@@ -13,12 +16,13 @@ interface DebutValue {
 
 interface FormValues {
     debut?: DebutValue;
-    gender?: string;
+    gender?: string[];
     species?: string[];
-    color?: string;
+    color?: string[];
 }
 
 export function LiverSearch({ livers }: { livers: Liver[] }) {
+    const [form] = Form.useForm<FormValues>();
     const [liverResults, setLiverResults] = useState<Liver[]>([]);
 
     function onSearch(formValues: FormValues) {
@@ -27,21 +31,21 @@ export function LiverSearch({ livers }: { livers: Liver[] }) {
 
         if (formValues.debut == undefined && formValues.gender == undefined &&
             formValues.species == undefined && formValues.color == undefined) {
-                setLiverResults([]);
-                return;
+            setLiverResults([]);
+            return;
         }
 
         for (const liver of livers) {
             if (formValues.debut != undefined && !matchesDebutGuess(liver.debut, formValues.debut)) {
                 continue;
             }
-            if (formValues.gender != undefined && liver.gender != formValues.gender) {
+            if (formValues.gender != undefined && !formValues.gender.includes(liver.gender)) {
                 continue;
             }
             if (formValues.species != undefined && !formValues.species.includes(liver.species)) {
                 continue;
             }
-            if (formValues.color != undefined && formValues.color != liver.color_group) {
+            if (formValues.color != undefined && !formValues.color.includes(liver.color_group)) {
                 continue;
             }
             possibleLivers.push(liver);
@@ -53,7 +57,7 @@ export function LiverSearch({ livers }: { livers: Liver[] }) {
     return (
         <div className="w-full grow lg:min-h-0 flex max-lg:flex-col justify-center max-lg:items-center gap-8">
             <Card title="Search Filters" className="w-full h-fit md:max-w-lg">
-                <Form onFinish={onSearch}>
+                <Form form={form} onFinish={onSearch}>
                     <Space vertical size={4} className="w-full">
                         <Form.Item
                             name="debut"
@@ -63,7 +67,7 @@ export function LiverSearch({ livers }: { livers: Liver[] }) {
                         <Form.Item
                             name="gender"
                         >
-                            <SelectBox title="Gender" keys={uniqueValues(livers, "gender")} />
+                            <GenderBox keys={uniqueValues(livers, "gender")} />
                         </Form.Item>
                         <Form.Item
                             name="species"
@@ -73,13 +77,18 @@ export function LiverSearch({ livers }: { livers: Liver[] }) {
                         <Form.Item
                             name="color"
                         >
-                            <SelectBox title="Color" keys={uniqueValues(livers, "color_group")} titleCase />
+                            <ColorBox />
                         </Form.Item>
-                        <Form.Item label={null}>
-                            <Button type="primary" htmlType="submit">
-                                Search
+                        <div className="flex gap-2 w-full">
+                            <Form.Item label={null}>
+                                <Button type="primary" htmlType="submit">
+                                    Search
+                                </Button>
+                            </Form.Item>
+                            <Button type="default" onClick={() => { form.resetFields(); setLiverResults([]); }}>
+                                Clear
                             </Button>
-                        </Form.Item>
+                        </div>
                     </Space>
                 </Form>
             </Card>
@@ -135,21 +144,66 @@ function SearchResults({ results }: { results: Liver[] }) {
     )
 }
 
-function SelectBox({ title, keys, titleCase = false, hint, onChange }:
-    { title: string, keys: string[], titleCase?: boolean, hint?: string, onChange?: (data: string) => void }) {
+function GenderBox({ keys, onChange }: { keys: string[], onChange?: (data?: string[]) => void }) {
+    const gender = useRef<string>(undefined);
+    const [opposite, setOpposite] = useState(false);
+
+    function emit(nextGender: string | undefined, nextOpposite: boolean) {
+        onChange?.(nextGender ? nextOpposite ? keys.filter((gender) => gender != nextGender) : [nextGender] : undefined);
+    }
+
     return (
-        <Space vertical size={6} className="w-full">
-            <p>{title}</p>
-            <Select
-                className="w-full"
-                placeholder={hint}
-                onChange={(input) => { if (onChange) { onChange(input) } }}
-                showSearch
-                allowClear
-                options={keys.map((key) => ({ value: key, label: titleCase ? toTitleCase(key) : key }))}
-            />
-        </Space>
-    );
+        <SelectBox title="Gender" keys={keys}
+            onChange={(value) => {
+                gender.current = value;
+                emit(value, opposite);
+            }}
+            titleCase
+        >
+            <Button type={opposite ? "primary" : "default"}
+                onClick={() => {
+                    const newGuess = !opposite;
+                    setOpposite(newGuess);
+                    emit(gender.current, newGuess);
+                }}
+            >
+                Opposite
+            </Button>
+        </SelectBox>
+
+    )
+}
+
+function ColorBox({ onChange }: { onChange?: (data?: string[]) => void }) {
+    const [color, setColor] = useState<string>();
+    const [nearColor, setNearColor] = useState(false);
+
+    function emit(nextColor: string | undefined, nextIsNear: boolean) {
+        onChange?.(nextColor ? nextIsNear ? getNeighbouringColors(nextColor) : [nextColor] : undefined);
+    }
+
+    return (
+        <SelectBox title="Color" keys={COLORS}
+            onChange={(color) => {
+                if (color === "white") setNearColor(false);
+                setColor(color);
+                emit(color, color !== "white" ? nearColor : false);
+            }}
+            titleCase
+        >
+            <Button type={nearColor ? "primary" : "default"}
+                onClick={() => {
+                    const newGuess = !nearColor;
+                    setNearColor(newGuess);
+                    emit(color, newGuess);
+                }}
+                disabled={color === "white"}
+            >
+                Neighbouring
+            </Button>
+        </SelectBox>
+
+    )
 }
 
 function DebutBox({ onChange }: { onChange?: (data: DebutValue | undefined) => void }) {
@@ -192,19 +246,41 @@ function DebutBox({ onChange }: { onChange?: (data: DebutValue | undefined) => v
     );
 }
 
-function SpeciesBox({ keys, onChange }: { keys: string[], onChange?: (data: string[] | undefined) => void }) {
+function SpeciesBox({ keys, onChange }: { keys: string[], onChange?: (data?: string[]) => void }) {
+    const species = useRef<string>(undefined);
+    const [isAdjacent, setIsAdjacent] = useState(false);
+
+    function emit(nextSpecies: string | undefined, nextIsAdjacent: boolean) {
+        const speciesData = nextSpecies ? nextIsAdjacent ? relatedSpecies(nextSpecies, keys) : [nextSpecies] : undefined;
+        onChange?.(speciesData ? speciesData : undefined);
+    }
+
     return (
         <Space vertical size={6} className="w-full">
             <p>Species</p>
-            <Select
-                className="w-full"
-                onChange={(input) => { if (onChange) { onChange(input ? relatedSpecies(input, keys) : undefined) } }}
-                showSearch={{
-                    filterOption: (input, option) => relatedSpecies(input, [option!.value]).length > 0
-                }}
-                options={keys.map((key) => ({ value: key, label: key }))}
-                allowClear
-            />
+            <div className="flex gap-2 w-full">
+                <Select
+                    className="flex-1"
+                    onChange={(input) => {
+                        species.current = input;
+                        emit(input, isAdjacent);
+                    }}
+                    showSearch={{
+                        filterOption: (input, option) => relatedSpecies(input, [option!.value]).length > 0
+                    }}
+                    options={keys.map((key) => ({ value: key, label: key }))}
+                    allowClear
+                />
+                <Button type={isAdjacent ? "primary" : "default"}
+                    onClick={() => {
+                        const newGuess = !isAdjacent;
+                        setIsAdjacent(newGuess);
+                        emit(species.current, newGuess);
+                    }}
+                >
+                    Adjacent
+                </Button>
+            </div>
         </Space>
     );
 }
@@ -222,11 +298,12 @@ function matchesDebutGuess(matchingYear: number, value: DebutValue) {
     return false;
 }
 
-const toTitleCase = (str: string) => {
-    if (!str) return '';
-    return str
-        .toLowerCase()
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-};
+function getNeighbouringColors(color: string) {
+    const index = COLORS.findIndex((value) => {
+        return value == color;
+    });
+
+    const before = index > 0 ? COLORS[index - 1] : COLORS[COLORS.length - 1];
+    const after = index < COLORS.length - 1 ? COLORS[index + 1] : COLORS[0];
+    return [before, after];
+}
